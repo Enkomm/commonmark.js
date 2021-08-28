@@ -8158,6 +8158,7 @@
         for (var i = 0; i < 3; i++) {
             openers_bottom[i][C_UNDERSCORE] = stack_bottom;
             openers_bottom[i][C_ASTERISK] = stack_bottom;
+            openers_bottom[i][C_TILDE] = stack_bottom;
             openers_bottom[i][C_SINGLEQUOTE] = stack_bottom;
             openers_bottom[i][C_DOUBLEQUOTE] = stack_bottom;
         }
@@ -8182,9 +8183,8 @@
                 ) {
                     odd_match =
                         (closer.can_open || opener.can_close) &&
-                        closer.origdelims % 3 !== 0 &&
                         (opener.origdelims + closer.origdelims) % 3 === 0;
-                    if (opener.cc === closer.cc && opener.can_open && !odd_match) {
+                    if (opener.cc === closer.cc && opener.can_open && (!odd_match || opener.cc === C_TILDE)) {
                         opener_found = true;
                         break;
                     }
@@ -8243,6 +8243,38 @@
                             this.removeDelimiter(closer);
                             closer = tempstack;
                         }
+                    }
+                } else if (closercc === C_TILDE) {
+                    if (!opener_found) {
+                        closer = closer.next;
+                    } else {
+                        opener_inl = opener.node;
+                        closer_inl = closer.node;
+
+                         // build contents for new del element
+                        var emph = new Node('del');
+
+                         tmp = opener_inl._next;
+                        while (tmp && tmp !== closer_inl) {
+                            next = tmp._next;
+                            tmp.unlink();
+                            emph.appendChild(tmp);
+                            tmp = next;
+                        }
+
+                         opener_inl.insertAfter(emph);
+
+                         // remove elts between opener and closer in delimiters stack
+                        removeDelimitersBetween(opener, closer);
+
+                         // remove the opening and closing delimiters
+                        opener_inl.unlink();
+                        this.removeDelimiter(opener);
+
+                         closer_inl.unlink();
+                        tempstack = closer.next;
+                        this.removeDelimiter(closer);
+                        closer = tempstack;
                     }
                 } else if (closercc === C_SINGLEQUOTE) {
                     closer.node._literal = "\u2019";
